@@ -1,0 +1,27 @@
+
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+"""
+go_proto_library(
+    name = "cloudbuild_go_proto",
+    importpath = "google.golang.org/genproto/googleapis/devtools/cloudbuild/v1",
+    deps = [
+        "@org_golang_google_genproto//googleapis/api/annotations:go_default_library",
+        "@org_golang_google_genproto//googleapis/longrunning:go_default_library",
+    ],
+    proto = "@com_google_googleapis//google/devtools/cloudbuild/v1:cloudbuild_proto",
+    visibility = ["//visibility:public"],
+)
+"""
+
+go_proto_library(
+    name = "cloudbuild_go_grpc",
+    compiler = "@io_bazel_rules_go//proto:go_grpc",
+    importpath = "google.golang.org/genproto/googleapis/devtools/cloudbuild/v1",
+    proto = "@com_google_googleapis//google/devtools/cloudbuild/v1:cloudbuild_proto",
+    deps = [
+        "@org_golang_google_genproto//googleapis/api/annotations:go_default_library",
+        "@org_golang_google_genproto//googleapis/longrunning:go_default_library",
+    ],
+    visibility = ["//visibility:public"],
+)

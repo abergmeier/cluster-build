@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "build.go",
+    ],
+    importpath = "github.com/abergmeier/cluster-build/build",
+    deps = [
+        "//operation:operation_go",
+        "//:cloudbuild_go_grpc",
+        "@org_golang_google_genproto//googleapis/longrunning:go_default_library",
+        "@org_golang_google_genproto//googleapis/devtools/cloudbuild/v1:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:any_go_proto",
+    ],
+    visibility = ["//visibility:public"],
+)

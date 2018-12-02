@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+
+go_binary(
+    name = "cluster-build",
+    srcs = [
+        "main.go",
+    ],
+    deps = [
+        "//operation:operation_go",
+        "//server:server_go",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_genproto//googleapis/longrunning:go_default_library",
+        "@org_golang_google_genproto//googleapis/devtools/cloudbuild/v1:go_default_library",
+    ],
+)
