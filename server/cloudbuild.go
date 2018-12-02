@@ -29,7 +29,6 @@ func NewCloudBuild(ops *operation.Operations) (*CloudBuildServer, error) {
 }
 
 func (s *CloudBuildServer) Close() {
-	s.ops.Close()
 	s.builds.Close()
 }
 

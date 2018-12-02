@@ -21,6 +21,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer ops.Close()
 
 	grpcServer := grpc.NewServer()
 	cbs, err := server.NewCloudBuild(ops)
