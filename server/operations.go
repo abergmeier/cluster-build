@@ -60,8 +60,8 @@ func (s *OperationsServer) DeleteOperation(ctx context.Context, r *longrunning.D
 func (s *OperationsServer) CancelOperation(ctx context.Context, r *longrunning.CancelOperationRequest) (*empty.Empty, error) {
 	c := make(chan error)
 	s.ops.Cancel <- operation.CancelOperationRequest{
-		R: r,
-		C: c,
+		Name: r.Name,
+		C:    c,
 	}
 	err := <-c
 	return nil, err

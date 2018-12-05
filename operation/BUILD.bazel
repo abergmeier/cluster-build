@@ -7,9 +7,9 @@ go_library(
     ],
     importpath = "github.com/abergmeier/cluster-build/operation",
     deps = [
+        "//build:build_go",
+        "@com_github_pkg_errors//:go_default_library",
         "@org_golang_google_genproto//googleapis/longrunning:go_default_library",
-        "@org_golang_google_genproto//googleapis/rpc/status:go_default_library",
-        "@org_golang_google_genproto//googleapis/rpc/code:go_default_library",
     ],
     visibility = ["//visibility:public"],
 )

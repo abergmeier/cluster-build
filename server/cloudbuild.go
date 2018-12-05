@@ -4,26 +4,19 @@ import (
 	"context"
 	"fmt"
 	"github.com/abergmeier/cluster-build/build"
-	"github.com/abergmeier/cluster-build/operation"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/genproto/googleapis/devtools/cloudbuild/v1"
 	"google.golang.org/genproto/googleapis/longrunning"
 )
 
 type CloudBuildServer struct {
-	ops    *operation.Operations
 	builds *build.Builds
 
 	operationC chan string
 }
 
-func NewCloudBuild(ops *operation.Operations) (*CloudBuildServer, error) {
-	bs, err := build.NewBuilds(ops)
-	if err != nil {
-		panic(err)
-	}
+func NewCloudBuild(bs *build.Builds) (*CloudBuildServer, error) {
 	return &CloudBuildServer{
-		ops:    ops,
 		builds: bs,
 	}, nil
 }
@@ -47,38 +40,48 @@ func (s *CloudBuildServer) CreateBuild(ctx context.Context, r *cloudbuild.Create
 }
 
 func (s *CloudBuildServer) GetBuild(ctx context.Context, r *cloudbuild.GetBuildRequest) (*cloudbuild.Build, error) {
-	gottenBuild := make(chan cloudbuild.Build)
+	gottenBuild := make(chan build.GetBuildResponse)
 	s.builds.Get <- build.GetBuildRequest{
-		R: r,
-		C: gottenBuild,
+		Id: r.Id,
+		C:  gottenBuild,
 	}
 
 	b := <-gottenBuild
-	return &b, nil
+	return &b.Build.Build, b.Err
 }
 
 func (s *CloudBuildServer) ListBuilds(ctx context.Context, r *cloudbuild.ListBuildsRequest) (*cloudbuild.ListBuildsResponse, error) {
-	listedBuilds := make(chan cloudbuild.ListBuildsResponse)
+	listedBuilds := make(chan build.Build)
 
 	s.builds.List <- build.ListBuildsRequest{
 		R: r,
 		C: listedBuilds,
 	}
 
-	list := <-listedBuilds
-	return &list, nil
+	builds := []*cloudbuild.Build{}
+	go func() {
+		for lb := range listedBuilds {
+			builds = append(builds, &lb.Build)
+		}
+	}()
+
+	resp := &cloudbuild.ListBuildsResponse{
+		Builds: builds,
+	}
+
+	return resp, nil
 }
 
 func (s *CloudBuildServer) CancelBuild(ctx context.Context, r *cloudbuild.CancelBuildRequest) (*cloudbuild.Build, error) {
-	canceledBuild := make(chan cloudbuild.Build)
+	recentState := make(chan build.CancelBuildResponse)
 
 	s.builds.Cancel <- build.CancelBuildRequest{
-		R: r,
-		C: canceledBuild,
+		Id: r.Id,
+		C:  recentState,
 	}
 
-	build := <-canceledBuild
-	return &build, nil
+	resp := <-recentState
+	return &resp.Build.Build, resp.Err
 }
 
 func (s *CloudBuildServer) RetryBuild(ctx context.Context, r *cloudbuild.RetryBuildRequest) (*longrunning.Operation, error) {

@@ -6,10 +6,12 @@ go_binary(
         "main.go",
     ],
     deps = [
+        "//build:build_go",
         "//operation:operation_go",
         "//server:server_go",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_genproto//googleapis/longrunning:go_default_library",
         "@org_golang_google_genproto//googleapis/devtools/cloudbuild/v1:go_default_library",
+        "@com_github_pkg_errors//:go_default_library",
     ],
 )

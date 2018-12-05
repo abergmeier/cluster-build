@@ -1,15 +1,14 @@
 package operation
 
 import (
+	"github.com/abergmeier/cluster-build/build"
+	"github.com/pkg/errors"
 	"google.golang.org/genproto/googleapis/longrunning"
-	"google.golang.org/genproto/googleapis/rpc/code"
-	"google.golang.org/genproto/googleapis/rpc/status"
-	"log"
 )
 
 type CancelOperationRequest struct {
-	R *longrunning.CancelOperationRequest
-	C chan error
+	Name string
+	C    chan error
 }
 
 type CancelledOperation struct {
@@ -48,6 +47,7 @@ type ListOperationsResponse struct {
 }
 
 type Operation struct {
+	Data interface{}
 	longrunning.Operation
 	cancel chan bool
 }
@@ -61,12 +61,14 @@ type Operations struct {
 
 	cancelled chan CancelledOperation
 
-	ops map[string]*Operation
+	builds *build.Builds
 }
 
-func NewOperationWorker() (*Operations, error) {
-	o := &Operations{}
-	go o.worker()
+func NewOperationWorker(builds *build.Builds) (*Operations, error) {
+	o := &Operations{
+		builds: builds,
+	}
+	go o.actor()
 	return o, nil
 }
 
@@ -75,77 +77,87 @@ func (o *Operations) Close() {
 }
 
 func (o *Operations) cancel(c *CancelOperationRequest) {
-	op, ok := o.ops[c.R.Name]
-	if !ok {
-		log.Fatalf("Could not find Operation %s", c.R.Name)
+	defer close(c.C)
+	buildId, err := build.ExtractIdFromOperationName(c.Name)
+	if err != nil {
+		c.C <- errors.Wrapf(err, "Operation name %s not recognized", c.Name)
+		return
 	}
-	op.cancel <- true
-}
-
-func (o *Operations) setCancel(c *CancelledOperation) {
-	op, ok := o.ops[c.Name]
-	if !ok {
-		log.Fatalf("Could not find Operation %s", c.Name)
+	lastState := make(chan build.CancelBuildResponse)
+	o.builds.Cancel <- build.CancelBuildRequest{
+		Id: buildId,
+		C:  lastState,
 	}
-	// TODO: check Done
-	op.Done = true
-	op.Result = &longrunning.Operation_Error{
-		Error: &status.Status{
-			Code:    int32(code.Code_CANCELLED),
-			Message: c.ErrorMessage,
-		},
-	}
-}
-
-func (o *Operations) create(c *CreateOperation) {
-	cancel := make(chan bool)
-	o.ops[c.Name] = &Operation{
-		cancel: cancel,
-	}
-	go c.Call(cancel)
+	resp := <-lastState
+	c.C <- resp.Err
 }
 
 func (o *Operations) delete(d *DeleteOperationRequest) {
-	// TODO: Perhaps cancel first
-	delete(o.ops, d.R.Name)
-	d.C <- nil
+	defer close(d.C)
+	buildId, err := build.ExtractIdFromOperationName(d.R.Name)
+	if err != nil {
+		d.C <- errors.Wrapf(err, "Operation name %s not recognized", d.R.Name)
+		return
+	}
+	result := make(chan error)
+	o.builds.Delete <- build.DeleteBuildRequest{
+		Id: buildId,
+		C:  result,
+	}
+
+	err = <-result
+	d.C <- err
 }
 
 func (o *Operations) get(g *GetOperationRequest) {
-	op, ok := o.ops[g.R.Name]
-	if !ok {
-		log.Fatalf("Could not find Operation %s", g.R.Name)
+	defer close(g.C)
+	buildId, err := build.ExtractIdFromOperationName(g.R.Name)
+	if err != nil {
+		g.C <- GetOperationResponse{
+			Err: errors.Wrapf(err, "Operation name %s not recognized", g.R.Name),
+		}
+		return
 	}
+	gotten := make(chan build.GetBuildResponse)
+	o.builds.Get <- build.GetBuildRequest{
+		Id: buildId,
+		C:  gotten,
+	}
+	resp := <-gotten
 	g.C <- GetOperationResponse{
-		Value: op.Operation,
-		Err:   nil,
+		Value: resp.Build.Operation,
+		Err:   resp.Err,
 	}
 }
 
 func (o *Operations) list(l *ListOperationsRequest) {
+	defer close(l.C)
 	// TODO: Handle Names and Filters
-	opList := make([]*longrunning.Operation, len(o.ops), len(o.ops))
-	for _, v := range o.ops {
-		opList = append(opList, &v.Operation)
-	}
-	l.C <- ListOperationsResponse{
-		Value: longrunning.ListOperationsResponse{
-			Operations: opList,
-		},
-		Err: nil,
+	opList := []*longrunning.Operation{}
+	listed := make(chan build.Build)
+	go func() {
+		for li := range listed {
+			opList = append(opList, &li.Operation)
+		}
+
+		l.C <- ListOperationsResponse{
+			Value: longrunning.ListOperationsResponse{
+				Operations: opList,
+			},
+			Err: nil,
+		}
+	}()
+	o.builds.List <- build.ListBuildsRequest{
+		C: listed,
 	}
 }
 
-func (o *Operations) worker() {
+func (o *Operations) actor() {
 
 	for {
 		select {
 		case c := <-o.Cancel:
 			o.cancel(&c)
-		case c := <-o.Create:
-			o.create(&c)
-		case c := <-o.cancelled:
-			o.setCancel(&c)
 		case d := <-o.Delete:
 			o.delete(&d)
 		case g := <-o.Get:

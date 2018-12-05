@@ -27,6 +27,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_pkg_errors",
+    tag = "v0.8.0",
+    importpath = "github.com/pkg/errors"
+)
+
+go_repository(
     name = "org_golang_google_genproto",
     commit = "b5d43981345bdb2c233eb4bf3277847b48c6fdc6",
     importpath = "google.golang.org/genproto",

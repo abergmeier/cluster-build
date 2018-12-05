@@ -14,7 +14,7 @@ go_library(
         "//:cloudbuild_go_grpc",
         "@org_golang_google_genproto//googleapis/longrunning:go_default_library",
         "@io_bazel_rules_go//proto/wkt:empty_go_proto",
-        "//build:go_default_library",
+        "//build:build_go",
         "//operation:operation_go",
     ],
     visibility = ["//visibility:public"],
