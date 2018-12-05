@@ -146,6 +146,7 @@ func (b *Builds) create(r *CreateBuildRequest) {
 
 	bId := b.newBuildId(r.R.Build)
 	r.R.Build.Id = bId
+	r.R.Build.Status = cloudbuild.Build_QUEUED
 	b.builds[bId] = Build{
 		Build: *r.R.Build,
 	}
